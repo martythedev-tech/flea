@@ -144,7 +144,7 @@ Item {
             out.push({ path: r.path, label: label, group: "device", kind: r.kind,
                        device: r.device, mounted: r.mounted, removable: r.removable,
                        mediaRemovable: r.mediaRemovable === true, size: r.size,
-                       volumeMenu: r.volumeMenu === true, glyph: "drive" })
+                       volumeMenu: r.volumeMenu === true, glyph: "drive", loop: !!r.loop })
         }
         // Same rule as ui/NetworkMounts.qml's: an unchanged poll assigns nothing, see Mounts.sameEntries.
         if (!Mounts.sameEntries(root.entries, out))
@@ -222,6 +222,13 @@ Item {
     // --eject (glib 2.88.3 gio-tool-mount.c:1264 against :1278), so "-e -d <device>" mounts instead.
     // gio's own -f is never passed: forcing an unmount over an open write is how a file manager
     // loses somebody's data.
+    //
+    // A loop row (an ISO opened from the file list) takes -u instead: -e hung indefinitely against
+    // it every time it was tried, on a bare loop device and on a hybrid ISO's partitioned one alike
+    // -- neither carries a Drive object, and that is what gio's eject path never comes back from
+    // waiting on. -u reaches gio in the same way "Unmount" already does for a network share, and
+    // judgeEject reads the very next listing either way, so the result is judged identically:
+    // gone or unmounted is "safe", still mounted is not.
     function eject(index) {
         var e = root.entries[index]
         if (!e || e.kind !== "volume" || !e.mounted)
@@ -232,15 +239,17 @@ Item {
         }
         // A USB disk that is not media-removable (a USB HDD or SSD bridge) is powered off
         // instead: ejecting its media re-announces the disk and udiskie remounts it at once.
+        // A loop row is never media-removable either, but there is no drive behind it to power
+        // off, so it skips this and takes the -u route below.
         var disk = Devices.powerOffDisk(e.device)
-        if (disk.length > 0 && e.mediaRemovable !== true) {
+        if (!e.loop && disk.length > 0 && e.mediaRemovable !== true) {
             root.powerOff(e, disk)
             return
         }
         root.armEject(e)
         root.quiesce(e.path)
         root._ejectErr = ""
-        ejectProcess.command = ["gio", "mount", "-e", e.path]
+        ejectProcess.command = e.loop ? ["gio", "mount", "-u", e.path] : ["gio", "mount", "-e", e.path]
         ejectProcess.running = true
         // Replaces the arm prompt, and a stick mid-flush can take a while to come unmounted.
         root.message("Ejecting " + e.label + ", do not unplug it yet.", false)
