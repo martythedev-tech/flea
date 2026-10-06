@@ -131,7 +131,7 @@ ui/TrashView.qml 466
 ui/ViewState.qml 536
 ui/WindowBody.qml 651
 ui/js/Anchor.js 406
-ui/js/Devices.js 393
+ui/js/Devices.js 409
 ui/js/Filter.js 257
 ui/js/Focus.js 435
 ui/js/Keymap.js 355

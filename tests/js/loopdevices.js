@@ -29,6 +29,17 @@ function run(check) {
     // -e hangs indefinitely on a loop volume (measured live), because it never carries a Drive
     // object the way a real disk's partition does, and gio's eject path waits on one regardless.
     check("the mounted loop partition is marked loop for eject to route around", iso[1].loop, true)
+    // Eject unmounts it and then detaches its loop device, which -u alone left attached.
+    var loopEject = Devices.ejectCommand(iso[1])
+    check("a loop row's eject unmounts it with -u, then detaches the loop device",
+          [loopEject[0], loopEject[2]].join(" "), 'sh gio mount -u "$1" && udisksctl loop-delete --no-user-interaction -b "$2"')
+    check("a loop row's eject passes the mountpoint and the loop device as arguments",
+          loopEject.slice(3).join(" "), "sh /run/media/user/OMARCHY_202608 /dev/loop0")
+    check("a stick's eject stays gio mount -e on its mountpoint",
+          Devices.ejectCommand({ device: "/dev/sda1", path: "/run/media/user/128GB", loop: false }).join(" "),
+          "gio mount -e /run/media/user/128GB")
+    check("a loop row whose device is no loop node falls back to -u alone",
+          Devices.ejectCommand({ device: "/dev/mapper/x", path: "/m", loop: true }).join(" "), "gio mount -u /m")
 
     // With unmounted volumes shown, a loop device's unmounted partition stays out even when it
     // has a filesystem to browse: only the partition gio mounted is a row.

@@ -226,9 +226,9 @@ Item {
     // A loop row (an ISO opened from the file list) takes -u instead: -e hung indefinitely against
     // it every time it was tried, on a bare loop device and on a hybrid ISO's partitioned one alike
     // -- neither carries a Drive object, and that is what gio's eject path never comes back from
-    // waiting on. -u reaches gio in the same way "Unmount" already does for a network share, and
-    // judgeEject reads the very next listing either way, so the result is judged identically:
-    // gone or unmounted is "safe", still mounted is not.
+    // waiting on. Its loop device is then detached (Devices.ejectCommand), and judgeEject reads the
+    // very next listing either way, so the result is judged identically: gone or unmounted is
+    // "safe", still mounted is not.
     function eject(index) {
         var e = root.entries[index]
         if (!e || e.kind !== "volume" || !e.mounted)
@@ -249,7 +249,7 @@ Item {
         root.armEject(e)
         root.quiesce(e.path)
         root._ejectErr = ""
-        ejectProcess.command = e.loop ? ["gio", "mount", "-u", e.path] : ["gio", "mount", "-e", e.path]
+        ejectProcess.command = Devices.ejectCommand(e)
         ejectProcess.running = true
         // Replaces the arm prompt, and a stick mid-flush can take a while to come unmounted.
         root.message("Ejecting " + e.label + ", do not unplug it yet.", false)
