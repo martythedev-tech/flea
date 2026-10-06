@@ -300,6 +300,9 @@ function powerOffDisk(device) {
 // loop to clear on its last close (measured: AUTOCLEAR 0 to 1, the mount kept reading), so the
 // detach never pulls a mount away. Sample: {device: "/dev/loop0p1", path: "/run/media/u/ISO",
 // loop: true} answers the sh chain against /dev/loop0; any other row answers gio mount -e.
+// A failed unmount exits 1; an unmount whose detach then failed exits detachFailedExit, so the
+// verdict can say the loop device is still attached instead of a plain "Ejected".
+var detachFailedExit = 3
 function ejectCommand(e) {
     var path = String(e.path || "")
     if (e.loop !== true)
@@ -307,7 +310,8 @@ function ejectCommand(e) {
     var loopDisk = powerOffDisk(e.device)
     if (!/^\/dev\/loop\d+$/.test(loopDisk))
         return ["gio", "mount", "-u", path]
-    return ["sh", "-c", 'gio mount -u "$1" && udisksctl loop-delete --no-user-interaction -b "$2"', "sh", path, loopDisk]
+    return ["sh", "-c", 'gio mount -u "$1" || exit 1; udisksctl loop-delete --no-user-interaction -b "$2" || exit ' + detachFailedExit,
+            "sh", path, loopDisk]
 }
 
 // The sysfs block name for a disk path, so the eject chain can watch its write counter.

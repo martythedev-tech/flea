@@ -117,6 +117,8 @@ function collectMounted(node, out) {
 function sentence(v, label, others) {
     if (v === "safe")
         return { text: "Ejected " + label + ", it is safe to unplug.", isError: false }
+    if (v === "attached") // A loop row unmounted, but its loop device could not be detached.
+        return { text: "Unmounted " + label + ", but its loop device is still attached.", isError: true }
     if (v === "mounted") {
         var rest = others || []
         if (rest.length === 0)

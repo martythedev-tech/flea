@@ -58,6 +58,8 @@ Item {
     // the only witness: gio's own exit code has been 0 over a volume that was still mounted.
     property string _ejectDevice: ""
     property string _ejectLabel: ""
+    // A loop row's unmount succeeded but its detach did not (Devices.detachFailedExit).
+    property bool _ejectDetachFailed: false
     // Listings are counted as they start. _verdictFromListing is 0 while gio runs, so nothing is
     // judged before it exits; at exit it becomes one past the count, so the listing in flight at
     // that moment, taken before the eject finished, is never the witness.
@@ -215,6 +217,7 @@ Item {
     function armEject(e) {
         root._ejectDevice = e.device
         root._ejectLabel = e.label
+        root._ejectDetachFailed = false
         root._verdictFromListing = 0
     }
 
@@ -321,7 +324,8 @@ Item {
             return
         powerOffTimeout.stop()
         ejectVerdictTimeout.stop()
-        var s = Eject.sentence(verdict, root._ejectLabel, others)
+        // An unmounted loop row reads as safe to the listing; a failed detach still has to say so.
+        var s = Eject.sentence(verdict === "safe" && root._ejectDetachFailed ? "attached" : verdict, root._ejectLabel, others)
         root._ejectDevice = ""
         // The newest verdict about this device is the true one, so it replaces the last one rather
         // than queueing behind it: a refusal is an error and stands until dismissed, and without
@@ -497,6 +501,7 @@ Item {
             }
             if (root._powerOffDisk.length > 0)
                 root._powerOffDisk = ""
+            root._ejectDetachFailed = exitCode === Devices.detachFailedExit
             root._verdictFromListing = root._listingsStarted + 1
             ejectVerdictTimeout.restart()
             root.poll()

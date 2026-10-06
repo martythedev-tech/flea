@@ -1,4 +1,5 @@
 .import "../../ui/js/Devices.js" as Devices
+.import "../../ui/js/Eject.js" as Eject
 
 // A loop-mounted .iso in the DEVICES rail: the one volume whose lsblk "rm" flag is never true
 // even though it is as browsable as a stick's. tests/js/devices.js keeps the removable and
@@ -32,7 +33,11 @@ function run(check) {
     // Eject unmounts it and then detaches its loop device, which -u alone left attached.
     var loopEject = Devices.ejectCommand(iso[1])
     check("a loop row's eject unmounts it with -u, then detaches the loop device",
-          [loopEject[0], loopEject[2]].join(" "), 'sh gio mount -u "$1" && udisksctl loop-delete --no-user-interaction -b "$2"')
+          [loopEject[0], loopEject[2]].join(" "), 'sh gio mount -u "$1" || exit 1; udisksctl loop-delete --no-user-interaction -b "$2" || exit 3')
+    check("a failed detach exits with its own code, apart from a failed unmount", Devices.detachFailedExit, 3)
+    check("a failed detach after an unmount is an error that names the loop device",
+          JSON.stringify(Eject.sentence("attached", "OMARCHY_202608", [])),
+          JSON.stringify({ text: "Unmounted OMARCHY_202608, but its loop device is still attached.", isError: true }))
     check("a loop row's eject passes the mountpoint and the loop device as arguments",
           loopEject.slice(3).join(" "), "sh /run/media/user/OMARCHY_202608 /dev/loop0")
     check("a stick's eject stays gio mount -e on its mountpoint",
